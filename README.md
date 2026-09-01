@@ -43,11 +43,19 @@ The codebase and endpoint integration logic underwent rigorous auditing and refa
 
 ---
 
+Here is the updated **Potential Improvements & Technical Debt** section featuring a deep dive into unit testability and how to further decouple dependencies for robust testing:
+
+---
+
 ## 5. Potential Improvements & Technical Debt
 
 While the current implementation prioritizes rapid iteration, simplicity, and robust network resilience, future iterations will focus on the following architectural enhancements:
 
+* **Deep Dive into Unit Testability:**
+While protocol-oriented programming (`NetworkServiceProtocol`) and mock implementations (`MockNetworkService`) successfully decouple networking from ViewModels, future testability can be significantly enhanced by introducing strict dependency inversion for asynchronous schedulers, time-dependent operations, and environment configurations.
+* **Factory & Closure Stubs:** Expanding mock objects to accept closure stubs (`fetchProspectsHandler`) rather than static properties allows unit tests to dynamically assert edge cases, malformed payloads, and specific error states without creating multiple subclasses or bloated mock files.
+* **Actor Isolation & Concurrency Testing:** Because the core network service is isolated to the `@MainActor`, tests verifying concurrent network fetches, race conditions, or cancellation tokens must carefully handle asynchronous execution boundaries (`Task` yields and actor re-entrancy). Implementing explicit test dispatchers or protocol-level environment wrappers will streamline async test assertions and eliminate timing-dependent flaky tests.
+
+
 * **View Composition (Child Views vs. Computed Properties):** For simplicity during initial prototyping, certain UI components within `ContentView` were structured using inline view properties or lightweight computed variables. In a production codebase, these should be extracted into dedicated, reusable child `View` structs to optimize SwiftUI's view identity, lifecycle performance, and re-rendering efficiency.
 * **Completing the MVVM-C Architecture:** Although designed around an **MVVM-C** (Model-View-ViewModel-Coordinator) specification mindset, the current implementation leans heavily into standard **MVVM**. To fully realize the architectural pattern, a dedicated `Coordinator` layer should be introduced to manage inter-screen navigation stacks, deep linking, and coordinator-driven data flows, completely decoupling routing logic from ViewModels and View lifecycles.
-
-*Would you like to expand any specific section above into a formal `README.md` file format for your repository?*
