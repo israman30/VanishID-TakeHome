@@ -9,6 +9,35 @@ import XCTest
 @testable import Prospects_List
 
 final class Prospects_ListTests: XCTestCase {
+    var mockData: MockServices!
+    
+    override func setUpWithError() throws {
+        mockData = MockServices()
+    }
+    
+    override func tearDownWithError() throws {
+        mockData = nil
+    }
+    
+    func testFetchProspects_Success() async throws {
+        mockData.shouldFail = false
+        let response = try await mockData.fetchProspects(page: 1, limit: 10)
+        XCTAssertFalse(mockData.prospects.isEmpty, "Prospects list should not be empty")
+        XCTAssertEqual(response.page, 1, "Page number should match request")
+    }
+    
+    func testFetchProspects_Failure() async {
+        mockData.shouldFail = true
+        do {
+            _ = try await mockData.fetchProspects(page: 1, limit: 10)
+            XCTFail("Expected fetchProspects to throw an error, but it succeeded.")
+        } catch let error as NetworkError {
+            XCTAssertEqual(error.errorDescription, "Unauthorized. Invalid API key.")
+        } catch {
+            XCTFail("Unexpected error type: \(error)")
+        }
+    }
+    
     func testDecodesProspectsWithFractionalDatesAndNumericIds() throws {
         let json = """
         {
@@ -47,4 +76,18 @@ final class Prospects_ListTests: XCTestCase {
         XCTAssertEqual(response.data[0].displayName, "Ada Lovelace")
         XCTAssertEqual(response.data[0].intentScore, 8)
     }
+}
+
+final class MockServices: NetworkServiceProtocol {
+    var shouldFail = false
+    var prospects = [Prospect]()
+    
+    func fetchProspects(page: Int, limit: Int) async throws -> ProspectsResponse {
+        ProspectsResponse(data: [])
+    }
+    
+    func enrichProspect(email: String) async throws -> EnrichmentResponse {
+        EnrichmentResponse(id: "xoxox", email: "john@mail.com", firstName: "Johs", lastName: "Doe", company: "Oracle", industry: "Tech", employeeCount: 20, buyingAuthority: "", matchConfidence: nil, linkedinUrl: "", directDial: "", securityBudgetUsd: nil, techStack: [], complianceFrameworks: [], recentBreachDisclosed: false, executiveExposureScore: 5, hqLocation: "")
+    }
+    
 }
