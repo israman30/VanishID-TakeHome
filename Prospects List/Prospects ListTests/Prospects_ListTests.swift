@@ -9,30 +9,42 @@ import XCTest
 @testable import Prospects_List
 
 final class Prospects_ListTests: XCTestCase {
-
-    override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-    }
-
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-    }
-
-    func testExample() throws {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // Any test you write for XCTest can be annotated as throws and async.
-        // Mark your test throws to produce an unexpected failure when your test encounters an uncaught error.
-        // Mark your test async to allow awaiting for asynchronous code to complete. Check the results with assertions afterwards.
-        // XCTest Documentation
-        // https://developer.apple.com/documentation/xctest
-    }
-
-    func testPerformanceExample() throws {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
+    func testDecodesProspectsWithFractionalDatesAndNumericIds() throws {
+        let json = """
+        {
+          "object": "list",
+          "data": [
+            {
+              "id": 42,
+              "first_name": "Ada",
+              "last_name": "Lovelace",
+              "email": "ada@example.com",
+              "company": null,
+              "title": "Analyst",
+              "source": "webinar",
+              "signed_up_at": "2026-08-31T16:05:22.123Z",
+              "intent_score": 8.7,
+              "source_metadata": { "webinar_title": "Privacy 101" }
+            }
+          ],
+          "page": 1,
+          "has_more": false
         }
-    }
+        """.data(using: .utf8)!
 
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let string = try container.decode(String.self)
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            return formatter.date(from: string)!
+        }
+
+        let response = try decoder.decode(ProspectsResponse.self, from: json)
+        XCTAssertEqual(response.data.count, 1)
+        XCTAssertEqual(response.data[0].id, "42")
+        XCTAssertEqual(response.data[0].displayName, "Ada Lovelace")
+        XCTAssertEqual(response.data[0].intentScore, 8)
+    }
 }

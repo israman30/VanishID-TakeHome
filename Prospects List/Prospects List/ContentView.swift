@@ -25,8 +25,7 @@ struct ContentView: View {
                     listContent
                     
                 case .error(let message):
-//                    errorView(message: message)
-                    Text("Error \(message)")
+                    errorView(message: message)
                 }
             }
             .navigationTitle("Prospects")
@@ -49,6 +48,24 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemBackground))
     }
+
+    private func errorView(message: String) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.largeTitle)
+                .foregroundStyle(.secondary)
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+            Button("Retry") {
+                Task { await viewModel.retry() }
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
     
     private var listContent: some View {
         List(viewModel.prospects) { prospect in
@@ -65,7 +82,13 @@ struct ContentView: View {
         }
         .listStyle(.plain)
         .overlay {
-            if viewModel.isLoadingMore {
+            if viewModel.prospects.isEmpty {
+                ContentUnavailableView(
+                    "No prospects",
+                    systemImage: "person.3",
+                    description: Text("The API returned no rows. Confirm the local server is running on port 8080.")
+                )
+            } else if viewModel.isLoadingMore {
                 VStack {
                     Spacer()
                     ProgressView()

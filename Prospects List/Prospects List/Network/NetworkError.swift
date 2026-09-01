@@ -18,6 +18,7 @@ enum NetworkError: LocalizedError {
     case notFound(message: String)
     case unauthorized
     case badRequest(fieldPath: String?, message: String)
+    case connectionFailed(String)
     case unknown(Error)
 
     var errorDescription: String? {
@@ -44,6 +45,8 @@ enum NetworkError: LocalizedError {
                 return "Bad request (\(path)): \(msg)"
             }
             return "Bad request: \(msg)"
+        case .connectionFailed(let msg):
+            return msg
         case .unknown(let error):
             return error.localizedDescription
         }
@@ -57,6 +60,8 @@ enum NetworkError: LocalizedError {
             return "Check your API key configuration."
         case .notFound:
             return "This prospect may not have enrichment data available."
+        case .connectionFailed:
+            return "Start the local API on port 8080, then pull to retry."
         default:
             return "Please try again."
         }

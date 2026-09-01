@@ -22,7 +22,8 @@ struct NetworkConfig {
     let timeoutInterval: TimeInterval
 
     static let `default` = NetworkConfig(
-        baseURL: URL(string: "http://127.0.0.1:8080")!,
+        // `localhost` is treated as a local ATS exception more reliably than 127.0.0.1.
+        baseURL: URL(string: "http://localhost:8080")!,
         apiKey: "gtm-takehome-2026",
         timeoutInterval: 30
     )
@@ -34,85 +35,109 @@ struct NetworkConfig {
 final class NetworkService: NetworkServiceProtocol {
     private let config: NetworkConfig
     private let decoder = JSONDecoder()
+    private let session: URLSession
 
-    init(config: NetworkConfig) {
+    init(config: NetworkConfig, session: URLSession = .shared) {
         self.config = config
+        self.session = session
         setupDecoder()
     }
 
     private func setupDecoder() {
-        decoder.dateDecodingStrategy = .iso8601
+        decoder.dateDecodingStrategy = .custom(Self.decodeDate)
     }
 
     // MARK: - Fetch Prospects
 
     func fetchProspects(page: Int, limit: Int) async throws -> ProspectsResponse {
         var components = URLComponents(
-            url: config.baseURL.appendingPathComponent("v1/prospects"),
+            url: config.baseURL.appending(path: "v1/prospects"),
             resolvingAgainstBaseURL: false
-        )!
+        )
 
-        components.queryItems = [
+        components?.queryItems = [
             URLQueryItem(name: "page", value: "\(page)"),
             URLQueryItem(name: "limit", value: "\(limit)"),
         ]
 
-        guard let url = components.url else {
+        guard let url = components?.url else {
             throw NetworkError.invalidURL
         }
 
-        let response = try await performRequest(ProspectsResponse.self, url: url)
-        return response
+        return try await performRequest(ProspectsResponse.self, url: url)
     }
 
     // MARK: - Enrich Prospect
 
     func enrichProspect(email: String) async throws -> EnrichmentResponse {
         var components = URLComponents(
-            url: config.baseURL.appendingPathComponent("v1/enrich"),
+            url: config.baseURL.appending(path: "v1/enrich"),
             resolvingAgainstBaseURL: false
-        )!
+        )
 
-        components.queryItems = [
+        components?.queryItems = [
             URLQueryItem(name: "email", value: email),
         ]
 
-        guard let url = components.url else {
+        guard let url = components?.url else {
             throw NetworkError.invalidURL
         }
 
-        let response = try await performRequest(EnrichmentResponse.self, url: url)
-        return response
+        return try await performRequest(EnrichmentResponse.self, url: url)
     }
 
     // MARK: - Perform Request
 
     private func performRequest<T: Decodable>(_ type: T.Type, url: URL) async throws -> T {
         var request = URLRequest(url: url)
+        request.httpMethod = "GET"
         request.setValue(config.apiKey, forHTTPHeaderField: "X-API-Key")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = config.timeoutInterval
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw mapTransportError(error)
+        }
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw NetworkError.invalidRequest
         }
 
-        // Handle error responses
         if !(200...299).contains(httpResponse.statusCode) {
             throw try handleErrorResponse(data: data, statusCode: httpResponse.statusCode, headers: httpResponse.allHeaderFields)
         }
 
-        // Decode successful response
         do {
             return try decoder.decode(T.self, from: data)
         } catch {
-            throw NetworkError.decodingError(error.localizedDescription)
+            throw NetworkError.decodingError(Self.decodingDescription(error))
         }
     }
 
+    private func mapTransportError(_ error: Error) -> NetworkError {
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .cannotConnectToHost, .cannotFindHost, .networkConnectionLost, .notConnectedToInternet, .timedOut, .dnsLookupFailed:
+                return .connectionFailed(
+                    "Could not reach \(config.baseURL.absoluteString). Make sure the take-home API is running. (\(urlError.localizedDescription))"
+                )
+            case .appTransportSecurityRequiresSecureConnection:
+                return .connectionFailed(
+                    "App Transport Security blocked the HTTP request to \(config.baseURL.absoluteString)."
+                )
+            default:
+                return .connectionFailed(urlError.localizedDescription)
+            }
+        }
+
+        return .unknown(error)
+    }
+
     private func handleErrorResponse(data: Data, statusCode: Int, headers: [AnyHashable: Any]) throws -> NetworkError {
-        // Try to decode error response
         if let errorResponse = try? decoder.decode(APIErrorResponse.self, from: data) {
             let detail = errorResponse.error
 
@@ -131,7 +156,6 @@ final class NetworkService: NetworkServiceProtocol {
             }
         }
 
-        // Fallback for responses without error detail
         switch statusCode {
         case 401:
             return .unauthorized
@@ -144,5 +168,58 @@ final class NetworkService: NetworkServiceProtocol {
             return .httpError(statusCode: statusCode, message: HTTPURLResponse.localizedString(forStatusCode: statusCode))
         }
     }
-}
 
+    private static func decodeDate(_ decoder: Decoder) throws -> Date {
+        let container = try decoder.singleValueContainer()
+
+        if let timestamp = try? container.decode(Double.self) {
+            let seconds = timestamp > 10_000_000_000 ? timestamp / 1000 : timestamp
+            return Date(timeIntervalSince1970: seconds)
+        }
+
+        let string = try container.decode(String.self)
+
+        let withFractional = ISO8601DateFormatter()
+        withFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = withFractional.date(from: string) {
+            return date
+        }
+
+        let internet = ISO8601DateFormatter()
+        internet.formatOptions = [.withInternetDateTime]
+        if let date = internet.date(from: string) {
+            return date
+        }
+
+        let posix = DateFormatter()
+        posix.locale = Locale(identifier: "en_US_POSIX")
+        posix.timeZone = TimeZone(secondsFromGMT: 0)
+        for format in ["yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd"] {
+            posix.dateFormat = format
+            if let date = posix.date(from: string) {
+                return date
+            }
+        }
+
+        throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unrecognized date: \(string)")
+    }
+
+    private static func decodingDescription(_ error: Error) -> String {
+        guard let decodingError = error as? DecodingError else {
+            return error.localizedDescription
+        }
+
+        switch decodingError {
+        case .keyNotFound(let key, let context):
+            return "Missing key '\(key.stringValue)' at \(context.codingPath.map(\.stringValue).joined(separator: "."))"
+        case .typeMismatch(let type, let context):
+            return "Type mismatch (\(type)) at \(context.codingPath.map(\.stringValue).joined(separator: ".")): \(context.debugDescription)"
+        case .valueNotFound(let type, let context):
+            return "Null \(type) at \(context.codingPath.map(\.stringValue).joined(separator: "."))"
+        case .dataCorrupted(let context):
+            return context.debugDescription
+        @unknown default:
+            return decodingError.localizedDescription
+        }
+    }
+}

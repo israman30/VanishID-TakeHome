@@ -61,7 +61,7 @@ final class ProspectViewModel: ObservableObject {
         } catch let error as NetworkError {
             state = .error(error.errorDescription ?? "Failed to load prospects")
         } catch {
-            state = .error("An unexpected error occurred")
+            state = .error(error.localizedDescription)
         }
     }
     
@@ -85,7 +85,7 @@ final class ProspectViewModel: ObservableObject {
         } catch let error as NetworkError {
             state = .error(error.errorDescription ?? "Failed to load more prospects")
         } catch {
-            state = .error("An unexpected error occurred")
+            state = .error(error.localizedDescription)
         }
         
         isLoadingMore = false
