@@ -8,8 +8,22 @@
 import Foundation
 
 // MARK: - Network Service Protocol
+/// Defines the core contract for network operations related to prospect management and data enrichment.
+///
+/// `NetworkServiceProtocol` leverages modern Swift Concurrency (`async/await`) to handle asynchronous
+/// API requests for fetching paginated prospects and enriching individual contact records.
 protocol NetworkServiceProtocol {
+    /// Fetches a paginated list of prospects from the server.
+        /// - Parameters:
+        ///   - page: The page number to request (typically 1-indexed).
+        ///   - limit: The maximum number of prospect records to return per page.
+        /// - Returns: A `ProspectsResponse` containing the array of prospects and pagination metadata.
+        /// - Throws: `NetworkError` if the network request fails, times out, or encounters decoding issues.
     func fetchProspects(page: Int, limit: Int) async throws -> ProspectsResponse
+    /// Requests enriched professional and technical intelligence for a specific email address.
+        /// - Parameter email: The target prospect's email address used for lookup and enrichment.
+        /// - Returns: An `EnrichmentResponse` containing organizational, technology stack, and compliance data.
+        /// - Throws: `NetworkError` if the lookup fails, returns a 404, or encounters unauthorized access.
     func enrichProspect(email: String) async throws -> EnrichmentResponse
 }
 
@@ -28,12 +42,20 @@ struct NetworkConfig {
 }
 
 // MARK: - Network Service Implementation
+/// A robust network service actor confined to the main execution context that handles API communication.
+///
+/// `NetworkService` conforms to `NetworkServiceProtocol` to fetch paginated prospects and enrich
+/// contact data using modern Swift Concurrency (`async/await`), custom date decoding, and detailed error mapping.
 @MainActor
 final class NetworkService: NetworkServiceProtocol {
     private let config: NetworkConfig
     private let decoder = JSONDecoder()
     private let session: URLSession
 
+    /// Initializes the network service with required configuration and an optional session.
+        /// - Parameters:
+        ///   - config: The network configuration object containing endpoint URLs and API keys.
+        ///   - session: The `URLSession` instance to use for network calls. Defaults to `.shared`.
     init(config: NetworkConfig, session: URLSession = .shared) {
         self.config = config
         self.session = session
@@ -45,7 +67,12 @@ final class NetworkService: NetworkServiceProtocol {
     }
 
     // MARK: - Fetch Prospects
-
+    /// Fetches a paginated list of prospects from the `/v1/prospects` endpoint.
+        /// - Parameters:
+        ///   - page: The target page number.
+        ///   - limit: The maximum number of items per page.
+        /// - Returns: A decoded `ProspectsResponse` containing the list of prospects and metadata.
+        /// - Throws: `NetworkError` if URL construction, transport, or decoding fails.
     func fetchProspects(page: Int, limit: Int) async throws -> ProspectsResponse {
         var components = URLComponents(
             url: config.baseURL.appending(path: "v1/prospects"),
@@ -65,7 +92,10 @@ final class NetworkService: NetworkServiceProtocol {
     }
 
     // MARK: - Enrich Prospect
-
+    /// Requests enrichment data for a specific contact email from the `/v1/enrich` endpoint.
+        /// - Parameter email: The email address to query.
+        /// - Returns: A decoded `EnrichmentResponse` containing organizational and technical intelligence.
+        /// - Throws: `NetworkError` if the request fails or returns an error status code.
     func enrichProspect(email: String) async throws -> EnrichmentResponse {
         var components = URLComponents(
             url: config.baseURL.appending(path: "v1/enrich"),
@@ -84,7 +114,12 @@ final class NetworkService: NetworkServiceProtocol {
     }
 
     // MARK: - Perform Request
-
+    /// Generic helper method to execute an HTTP GET request, handle transport and error status codes, and decode the response.
+        /// - Parameters:
+        ///   - type: The expected Decodable model type.
+        ///   - url: The fully constructed request URL.
+        /// - Returns: The decoded model instance.
+        /// - Throws: `NetworkError` mapped from transport failures, bad status codes, or decoding exceptions.
     private func performRequest<T: Decodable>(_ type: T.Type, url: URL) async throws -> T {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -115,6 +150,9 @@ final class NetworkService: NetworkServiceProtocol {
         }
     }
 
+    // Maps low-level `URLError` transport failures into descriptive, user-friendly `NetworkError` cases.
+        /// - Parameter error: The raw transport error caught during execution.
+        /// - Returns: A localized `NetworkError` with setup instructions if applicable.
     private func mapTransportError(_ error: Error) -> NetworkError {
         if let urlError = error as? URLError {
             switch urlError.code {
@@ -134,6 +172,12 @@ final class NetworkService: NetworkServiceProtocol {
         return .unknown(error)
     }
 
+    /// Inspects error response payloads and HTTP status codes to generate precise domain errors.
+        /// - Parameters:
+        ///   - data: The raw error response body returned by the server.
+        ///   - statusCode: The HTTP response status code.
+        ///   - headers: The HTTP header fields (used for rate limit retry intervals).
+        /// - Returns: A corresponding `NetworkError` instance.
     private func handleErrorResponse(data: Data, statusCode: Int, headers: [AnyHashable: Any]) throws -> NetworkError {
         if let errorResponse = try? decoder.decode(APIErrorResponse.self, from: data) {
             let detail = errorResponse.error
@@ -166,6 +210,10 @@ final class NetworkService: NetworkServiceProtocol {
         }
     }
 
+    /// Custom date decoding strategy supporting numeric timestamps (seconds or milliseconds) and multiple ISO/POSIX string formats.
+        /// - Parameter decoder: The decoder instance providing the single value container.
+        /// - Returns: A parsed `Date` object.
+        /// - Throws: `DecodingError` if the value matches no supported date format.
     private static func decodeDate(_ decoder: Decoder) throws -> Date {
         let container = try decoder.singleValueContainer()
 
@@ -201,6 +249,9 @@ final class NetworkService: NetworkServiceProtocol {
         throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unrecognized date: \(string)")
     }
 
+    /// Converts low-level Swift `DecodingError` instances into clean, readable debug descriptions.
+        /// - Parameter error: The caught error.
+        /// - Returns: A human-readable description string specifying missing keys, type mismatches, or corrupted data paths.
     private static func decodingDescription(_ error: Error) -> String {
         guard let decodingError = error as? DecodingError else {
             return error.localizedDescription

@@ -8,7 +8,10 @@
 import Foundation
 
 // MARK: - Network Error
-
+/// Represents comprehensive network, decoding, and server-side errors encountered during API requests.
+///
+/// `NetworkError` conforms to `LocalizedError` to provide user-facing error descriptions,
+/// contextual recovery suggestions, and built-in rules for retry logic.
 enum NetworkError: LocalizedError {
     case invalidURL
     case invalidRequest
@@ -80,7 +83,6 @@ enum NetworkError: LocalizedError {
 }
 
 // MARK: - API Error Response
-
 struct APIErrorResponse: Codable {
     let error: ErrorDetail
 
