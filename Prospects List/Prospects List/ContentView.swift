@@ -8,11 +8,14 @@
 import SwiftUI
 
 struct ContentView: View {
-//    @EnvironmentObject var coordinator: AppCoordinator
     @StateObject private var viewModel: ProspectViewModel
     
     init() {
-        _viewModel = StateObject(wrappedValue: ProspectViewModel(networkService: NetworkService(config: NetworkConfig.default)))
+        _viewModel = StateObject(
+            wrappedValue: ProspectViewModel(
+                networkService: NetworkService(config: NetworkConfig.default)
+            )
+        )
     }
     var body: some View {
         NavigationStack {
@@ -36,7 +39,6 @@ struct ContentView: View {
         }
     }
     // MARK: - Loading View
-    
     private var loadingView: some View {
         VStack(spacing: 12) {
             ProgressView()
@@ -60,7 +62,9 @@ struct ContentView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
             Button("Retry") {
-                Task { await viewModel.retry() }
+                Task {
+                    await viewModel.retry()
+                }
             }
             .buttonStyle(.borderedProminent)
         }
@@ -98,9 +102,6 @@ struct ContentView: View {
                         .padding()
                 }
             }
-        }
-        .navigationDestination(for: Prospect.self) { prospect in
-//            ProspectDetailView(prospect: prospect)
         }
     }
 }

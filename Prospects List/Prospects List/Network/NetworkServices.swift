@@ -8,14 +8,12 @@
 import Foundation
 
 // MARK: - Network Service Protocol
-
 protocol NetworkServiceProtocol {
     func fetchProspects(page: Int, limit: Int) async throws -> ProspectsResponse
     func enrichProspect(email: String) async throws -> EnrichmentResponse
 }
 
 // MARK: - Network Configuration
-
 struct NetworkConfig {
     let baseURL: URL
     let apiKey: String
@@ -30,7 +28,6 @@ struct NetworkConfig {
 }
 
 // MARK: - Network Service Implementation
-
 @MainActor
 final class NetworkService: NetworkServiceProtocol {
     private let config: NetworkConfig

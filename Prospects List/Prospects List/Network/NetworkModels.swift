@@ -163,7 +163,6 @@ struct Prospect: Decodable, Identifiable, Hashable {
 }
 
 // MARK: - Source Metadata (Variable by source)
-
 enum SourceMetadata: Codable {
     case webinar(WebinarMetadata)
     case hubspot(HubspotMetadata)
@@ -223,7 +222,6 @@ enum SourceMetadata: Codable {
 }
 
 // MARK: - Dynamic Coding Keys
-
 struct DynamicCodingKeys: CodingKey {
     var stringValue: String
     var intValue: Int?
