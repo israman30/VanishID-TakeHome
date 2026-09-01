@@ -35,7 +35,6 @@ final class ProspectViewModel: ObservableObject {
     @Published private(set) var isLoadingMore: Bool = false
     
     private let networkService: NetworkServiceProtocol
-//    private let logger = NetworkLogger.sharede
     
     private let pageSize = 20
     
@@ -59,14 +58,10 @@ final class ProspectViewModel: ObservableObject {
             hasMorePages = response.hasMore
             state = .loaded
             
-//            logger.log(.success, message: "Loaded \(response.data.count) prospects")
-            
         } catch let error as NetworkError {
             state = .error(error.errorDescription ?? "Failed to load prospects")
-//            logger.logError(error, url: nil)
         } catch {
             state = .error("An unexpected error occurred")
-//            logger.logError(error, url: nil)
         }
     }
     
@@ -87,14 +82,10 @@ final class ProspectViewModel: ObservableObject {
             currentPage = nextPage
             hasMorePages = response.hasMore
             
-//            logger.log(.success, message: "Loaded more prospects")
-            
         } catch let error as NetworkError {
             state = .error(error.errorDescription ?? "Failed to load more prospects")
-//            logger.logError(error, url: nil)
         } catch {
             state = .error("An unexpected error occurred")
-//            logger.logError(error, url: nil)
         }
         
         isLoadingMore = false

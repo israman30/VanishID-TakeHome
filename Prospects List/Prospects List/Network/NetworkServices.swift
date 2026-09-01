@@ -33,7 +33,6 @@ struct NetworkConfig {
 @MainActor
 final class NetworkService: NetworkServiceProtocol {
     private let config: NetworkConfig
-//    private let logger = NetworkLogger.shared
     private let decoder = JSONDecoder()
 
     init(config: NetworkConfig) {
@@ -63,7 +62,6 @@ final class NetworkService: NetworkServiceProtocol {
         }
 
         let response = try await performRequest(ProspectsResponse.self, url: url)
-//        logger.log(.success, message: "Fetched \(response.data.count) prospects")
         return response
     }
 
@@ -84,7 +82,6 @@ final class NetworkService: NetworkServiceProtocol {
         }
 
         let response = try await performRequest(EnrichmentResponse.self, url: url)
-//        logger.log(.success, message: "Enriched prospect: \(email)")
         return response
     }
 
@@ -95,15 +92,11 @@ final class NetworkService: NetworkServiceProtocol {
         request.setValue(config.apiKey, forHTTPHeaderField: "X-API-Key")
         request.timeoutInterval = config.timeoutInterval
 
-//        logger.log(.request, message: "GET \(url.path)")
-
         let (data, response) = try await URLSession.shared.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw NetworkError.invalidRequest
         }
-
-//        logger.log(.response, message: "Status: \(httpResponse.statusCode)")
 
         // Handle error responses
         if !(200...299).contains(httpResponse.statusCode) {
@@ -114,7 +107,6 @@ final class NetworkService: NetworkServiceProtocol {
         do {
             return try decoder.decode(T.self, from: data)
         } catch {
-//            logger.logError(error, url: url)
             throw NetworkError.decodingError(error.localizedDescription)
         }
     }
