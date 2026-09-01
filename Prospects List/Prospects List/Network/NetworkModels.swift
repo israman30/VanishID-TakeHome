@@ -7,7 +7,12 @@
 
 import Foundation
 
-// MARK: - Prospect List Response   
+// MARK: - Prospect List Response
+/// Represents a prospective lead or attendee within the marketing and sales pipeline.
+///
+/// `Prospect` conforms to `Decodable` to safely parse incoming JSON payloads (with robust
+/// fallback mechanisms for missing or type-mismatched fields), `Identifiable` for use in
+/// SwiftUI lists, and `Hashable` for unique collection handling.
 struct ProspectsResponse: Decodable {
     let object: String
     let data: [Prospect]
@@ -108,7 +113,7 @@ struct Prospect: Decodable, Identifiable, Hashable {
         case intentScore = "intent_score"
         case sourceMetadata = "source_metadata"
     }
-
+    /// Custom initializer ensuring fault-tolerant decoding, graceful fallbacks for missing text/numeric values, and type flexibility for IDs and scores.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try Self.decodeIdentifier(container, forKey: .id)
@@ -134,7 +139,8 @@ struct Prospect: Decodable, Identifiable, Hashable {
         }
         sourceMetadata = try container.decodeIfPresent(SourceMetadata.self, forKey: .sourceMetadata) ?? .other
     }
-
+ 
+    /// Helper method to decode identifier fields that may dynamically arrive as either a String or an Int.
     private static func decodeIdentifier(_ container: KeyedDecodingContainer<CodingKeys>, forKey key: CodingKeys) throws -> String {
         if let value = try? container.decode(String.self, forKey: key), !value.isEmpty {
             return value
@@ -163,6 +169,10 @@ struct Prospect: Decodable, Identifiable, Hashable {
 }
 
 // MARK: - Source Metadata (Variable by source)
+/// Represents polymorphic metadata associated with a prospect's acquisition source.
+///
+/// `SourceMetadata` conforms to `Codable` to support custom decoding and encoding of
+/// distinct payload structures depending on the originating channel (e.g., webinars, CRM forms, or fallback).
 enum SourceMetadata: Codable {
     case webinar(WebinarMetadata)
     case hubspot(HubspotMetadata)
@@ -222,6 +232,11 @@ enum SourceMetadata: Codable {
 }
 
 // MARK: - Dynamic Coding Keys
+/// A flexible, dynamic coding key implementation conforming to `CodingKey`.
+///
+/// `DynamicCodingKeys` allows you to inspect, decode, or encode JSON payloads
+/// with arbitrary or runtime-determined keys—making it ideal for polymorphic data
+/// containers where the exact keys aren't known at compile time.
 struct DynamicCodingKeys: CodingKey {
     var stringValue: String
     var intValue: Int?
@@ -237,7 +252,10 @@ struct DynamicCodingKeys: CodingKey {
 }
 
 // MARK: - Enrichment Response
-
+/// Represents structured data returned from a third-party lead enrichment service.
+///
+/// `EnrichmentResponse` conforms to `Codable` and maps professional, organizational,
+/// and security-related intelligence back to a specific prospect profile or contact record.
 struct EnrichmentResponse: Codable {
     let id: String
     let email: String
