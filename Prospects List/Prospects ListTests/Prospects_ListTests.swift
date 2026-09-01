@@ -38,6 +38,18 @@ final class Prospects_ListTests: XCTestCase {
         }
     }
     
+    func testEnrichProspect_Success() async throws {
+        
+        mockData.shouldFail = false
+        let testEmail = "elena.vance@apexcloud.io"
+        
+        let response = try await mockData.enrichProspect(email: testEmail)
+        
+        XCTAssertEqual(response.email, testEmail, "Enriched email should match requested email")
+        XCTAssertNotNil(response.company, "Company should be populated")
+        XCTAssertEqual(response.matchConfidence, 0.96)
+    }
+    
     func testDecodesProspectsWithFractionalDatesAndNumericIds() throws {
         let json = """
         {
@@ -75,6 +87,25 @@ final class Prospects_ListTests: XCTestCase {
         XCTAssertEqual(response.data[0].id, "42")
         XCTAssertEqual(response.data[0].displayName, "Ada Lovelace")
         XCTAssertEqual(response.data[0].intentScore, 8)
+    }
+    
+    func testEnrichProspect_NotFoundFailure() async {
+        // Given
+        mockData.shouldFail = true
+        
+        // When / Then
+        do {
+            _ = try await mockData.enrichProspect(email: "unknown@example.com")
+            XCTFail("Expected enrichProspect to throw an error, but it succeeded.")
+        } catch let error as NetworkError {
+            if case .notFound(let message) = error {
+                XCTAssertEqual(message, "Prospect not found")
+            } else {
+                XCTFail("Unexpected NetworkError case: \(error)")
+            }
+        } catch {
+            XCTFail("Unexpected error type: \(error)")
+        }
     }
 }
 
